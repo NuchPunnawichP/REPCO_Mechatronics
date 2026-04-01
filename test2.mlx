@@ -1,0 +1,572 @@
+clear
+clc
+close all
+
+%% PARAMETERS
+
+fs = 4000;                % sampling rate
+window_time = 0.1;        % 100 ms window
+overlap = 0.5;
+
+files = [
+"AE testing/a0016.bin"
+"AE testing/a0017.bin"
+"AE testing/a0018.bin"
+];
+
+win = round(window_time*fs);
+step = round(win*(1-overlap));
+
+features = [];
+
+%% READ FILES AND EXTRACT FEATURES
+
+for f = 1:length(files)
+
+    filename = files(f);
+    fid = fopen(filename,'rb');
+
+    if fid == -1
+        error("Cannot open file: %s",filename)
+    end
+
+    data = fread(fid,Inf,'uint16');
+    fclose(fid);
+
+    signal = double(data)/4096*3.3;   % convert ADC to volts
+    N = length(signal);
+
+    for i = 1:step:N-win
+
+        segment = signal(i:i+win-1);
+
+        %% TIME FEATURES (PURE MATH)
+        mu = mean(segment);
+        sigma = std(segment);
+
+        rms_val = sqrt(mean(segment.^2));
+
+        kurt = mean((segment-mu).^4)/(sigma^4);
+
+        skew = mean((segment-mu).^3)/(sigma^3);
+
+        peak = max(abs(segment));
+
+        energy = sum(segment.^2);
+
+        crest = peak / rms_val;
+
+        %% FREQUENCY FEATURES
+
+        Y = abs(fft(segment));
+        Y = Y(1:floor(end/2));
+
+        freqs = (0:length(Y)-1)*(fs/length(segment));
+
+        spec_centroid = sum(freqs'.*Y)/sum(Y);
+
+        band_energy = sum(Y(freqs>200 & freqs<1000));
+
+        feat = [rms_val kurt skew peak energy crest spec_centroid band_energy];
+
+        features = [features; feat];
+
+    end
+
+end
+
+%% NORMALIZATION
+
+X = (features - mean(features)) ./ std(features);
+
+%% PCA USING SVD
+
+[U,S,V] = svd(X,'econ');
+
+score = X*V;
+
+X_pca = score(:,1:2);
+
+%% CUSTOM K-MEANS
+
+K = 3;
+N = size(X_pca, 1);
+
+rng(1)
+
+centroids = X_pca(randperm(N,K),:);
+
+for iter = 1:100
+
+    dist = zeros(N, K);
+
+    for k = 1:K
+        diff = X_pca - centroids(k,:);
+        dist(:,k) = sum(diff.^2,2);
+    end
+
+    [~,idx] = min(dist,[],2);
+
+    for k = 1:K
+        if sum(idx==k) > 0
+            centroids(k,:) = mean(X_pca(idx==k,:),1);
+        end
+    end
+end
+
+%% VISUALIZATION (NO TOOLBOX)
+
+figure
+hold on
+
+colors = lines(K);
+
+for k = 1:K
+    scatter(X_pca(idx==k,1),X_pca(idx==k,2),30,colors(k,:),'filled')
+end
+
+scatter(centroids(:,1),centroids(:,2),120,'k','filled')
+
+xlabel("PC1")
+ylabel("PC2")
+title("AE Clustering Result")
+
+grid on
+hold off
+
+%% FEATURE DISTRIBUTION
+
+figure
+histogram(features(:,2),50)
+xlabel("Kurtosis")
+ylabel("Count")
+title("Kurtosis Distribution")
+
+%% PCA VARIANCE
+
+variance = diag(S).^2 / sum(diag(S).^2);
+
+disp("Variance explained by PC1 + PC2:")
+disp(sum(variance(1:2)))
+Specifice Values
+%% NUMERICAL ANALYSIS OF CLUSTERS
+feature_names = ["RMS","Kurtosis","Skewness","Peak","Energy","Crest","SpecCentroid","BandEnergy"];
+
+disp(" ")
+disp("===== CLUSTER FEATURE STATISTICS =====")
+
+for k = 1:K
+    cluster_data = features(idx==k,:);
+    fprintf("\nCluster %d\n",k)
+
+    if isempty(cluster_data)
+        disp("No data in this cluster")
+        continue
+    end
+
+    mean_vals = mean(cluster_data);
+    std_vals  = std(cluster_data);
+
+    for j = 1:length(feature_names)
+        fprintf("%s : mean = %.4f , std = %.4f\n", ...
+            feature_names(j), mean_vals(j), std_vals(j));
+    end
+end
+Cluster size
+disp(" ")
+disp("===== CLUSTER SIZE =====")
+
+for k = 1:K
+    fprintf("Cluster %d : %d segments\n",k,sum(idx==k));
+end
+Extra
+%% CLUSTER INTERPRETATION REPORT
+
+feature_names = ["RMS","Kurtosis","Skewness","Peak","Energy","Crest","SpecCentroid","BandEnergy"];
+
+cluster_colors = ["Blue","Orange","Yellow"];   % ตามกราฟที่ plot
+
+disp(" ")
+disp("========== CLUSTER INTERPRETATION REPORT ==========")
+
+for k = 1:K
+
+    cluster_data = features(idx==k,:);
+
+    fprintf("\nCluster %d (%s)\n",k,cluster_colors(k))
+    fprintf("Number of segments: %d\n",sum(idx==k))
+
+    if isempty(cluster_data)
+        disp("No data")
+        continue
+    end
+
+    mean_vals = mean(cluster_data);
+    std_vals  = std(cluster_data);
+
+    disp("Feature statistics:")
+
+    for j = 1:length(feature_names)
+
+        fprintf("%s : mean = %.4f , std = %.4f\n", ...
+            feature_names(j), mean_vals(j), std_vals(j));
+
+    end
+
+end
+
+%% AUTOMATIC PHYSICAL INTERPRETATION
+
+disp(" ")
+disp("========== PHYSICAL INTERPRETATION ==========")
+
+for k = 1:K
+
+    cluster_data = features(idx==k,:);
+
+    if isempty(cluster_data)
+        continue
+    end
+
+    mean_kurt = mean(cluster_data(:,2));
+    mean_rms  = mean(cluster_data(:,1));
+    mean_energy = mean(cluster_data(:,5));
+
+    fprintf("\nCluster %d (%s)\n",k,cluster_colors(k))
+
+    if mean_kurt < 10
+        disp("Interpretation: Background noise / weak AE")
+    elseif mean_kurt < 40
+        disp("Interpretation: Continuous emission / vibration")
+    else
+        disp("Interpretation: Burst AE / impulsive event")
+    end
+
+    fprintf("Mean Kurtosis = %.2f\n",mean_kurt)
+    fprintf("Mean RMS = %.4f\n",mean_rms)
+    fprintf("Mean Energy = %.4f\n",mean_energy)
+
+end
+
+BERT EMBEDDING
+clear
+clc
+close all
+
+%% PARAMETERS
+fs = 4000;                % sampling rate
+window_time = 0.1;        % 100 ms window
+overlap = 0.5;
+
+files = [
+"AE testing/a0016.bin"
+"AE testing/a0017.bin"
+"AE testing/a0018.bin"
+];
+
+win = round(window_time*fs);             % 400 samples per window
+step = round(win*(1-overlap));           % 200 samples step
+
+% ==== BERT / TRANSFORMER PARAMETERS ====
+patch_size = 20;                         % 20 samples per patch
+num_patches = floor(win / patch_size);   % 20 patches per window
+d_model = 64;                            % Embedding dimension
+d_ff = 128;                              % Feed-forward network dimension
+
+%% INITIALIZE UNTRAINED BERT WEIGHTS (NO TOOLBOX)
+% ใช้ rng เพื่อให้ผลลัพธ์การสุ่ม weight คงที่ในทุกครั้งที่รัน
+rng(42); 
+
+% 1. Linear Projection & Positional Encoding
+W_proj = randn(patch_size, d_model) * 0.01;
+pos_embed = randn(num_patches, d_model) * 0.01;
+
+% 2. Self-Attention Weights (Single Head)
+W_q = randn(d_model, d_model) * 0.01;
+W_k = randn(d_model, d_model) * 0.01;
+W_v = randn(d_model, d_model) * 0.01;
+
+% 3. Feed-Forward Weights
+W_f1 = randn(d_model, d_ff) * 0.01;
+W_f2 = randn(d_ff, d_model) * 0.01;
+
+bert_embeddings = [];
+
+%% READ FILES AND EXTRACT BERT EMBEDDINGS
+for f = 1:length(files)
+    filename = files(f);
+    fid = fopen(filename,'rb');
+    
+    if fid == -1
+        fprintf("Cannot open file: %s\n", filename);
+        continue
+    end
+
+    data = fread(fid,Inf,'uint16');
+    fclose(fid);
+
+    signal = double(data)/4096*3.3;   % convert ADC to volts
+    N = length(signal);
+
+    for i = 1:step:N-win
+        segment = signal(i:i+win-1);
+        segment = segment(:)'; % บังคับให้เป็น row vector
+        
+        % 1. PATCHING
+        % หั่น 400 samples เป็น 20 patches (patch ละ 20 samples)
+        patches = reshape(segment, patch_size, num_patches)'; % Size: [num_patches, patch_size]
+        
+        % 2. LINEAR PROJECTION + POSITIONAL EMBEDDING
+        X = patches * W_proj + pos_embed;                     % Size: [num_patches, d_model]
+        
+        % 3. SELF-ATTENTION
+        Q = X * W_q;
+        K = X * W_k;
+        V = X * W_v;
+        
+        % Scaled Dot-Product Attention
+        scores = (Q * K') / sqrt(d_model);                    % Size: [num_patches, num_patches]
+        
+        % Custom Softmax (คำนวณทีละแถว ป้องกันค่า Inf)
+        scores_exp = exp(scores - max(scores, [], 2)); 
+        attn_weights = scores_exp ./ sum(scores_exp, 2);
+        
+        Context = attn_weights * V;                           % Size: [num_patches, d_model]
+        
+        % 4. ADD & NORM (Layer Normalization)
+        X_add = X + Context;
+        mu1 = mean(X_add, 2);
+        sig1 = std(X_add, 0, 2) + 1e-5;
+        X_norm1 = (X_add - mu1) ./ sig1;
+        
+        % 5. FEED-FORWARD NETWORK
+        FFN1 = max(0, X_norm1 * W_f1);                        % ReLU Activation
+        FFN2 = FFN1 * W_f2;
+        
+        % 6. ADD & NORM
+        X_out = X_norm1 + FFN2;
+        mu2 = mean(X_out, 2);
+        sig2 = std(X_out, 0, 2) + 1e-5;
+        X_norm2 = (X_out - mu2) ./ sig2;
+        
+        % 7. POOLING (นำค่าจากทุก Patch มาเฉลี่ยเพื่อเป็นตัวแทนของ Window นี้)
+        window_embedding = mean(X_norm2, 1);                  % Size: [1, d_model]
+        
+        bert_embeddings = [bert_embeddings; window_embedding];
+    end
+end
+
+%% NORMALIZATION (Z-Score)
+X_emb_norm = (bert_embeddings - mean(bert_embeddings)) ./ std(bert_embeddings);
+
+%% PCA USING SVD
+[U,S,V_pca] = svd(X_emb_norm,'econ');
+score = X_emb_norm * V_pca;
+X_pca = score(:,1:2);
+
+%% CUSTOM K-MEANS
+K_clusters = 3;
+N_samples = size(X_pca, 1);
+rng(1)
+
+centroids = X_pca(randperm(N_samples,K_clusters),:);
+
+for iter = 1:100
+    dist = zeros(N_samples, K_clusters);
+    for k = 1:K_clusters
+        diff = X_pca - centroids(k,:);
+        dist(:,k) = sum(diff.^2,2);
+    end
+    [~,idx] = min(dist,[],2);
+    for k = 1:K_clusters
+        if sum(idx==k) > 0
+            centroids(k,:) = mean(X_pca(idx==k,:),1);
+        end
+    end
+end
+
+%% VISUALIZATION (NO TOOLBOX)
+figure
+hold on
+colors = lines(K_clusters);
+
+for k = 1:K_clusters
+    scatter(X_pca(idx==k,1),X_pca(idx==k,2),30,colors(k,:),'filled')
+end
+
+scatter(centroids(:,1),centroids(:,2),120,'k','filled','MarkerEdgeColor','w','LineWidth',1.5)
+
+xlabel("PC1")
+ylabel("PC2")
+title("Acoustic BERT Embedding Clustering (Pure Math)")
+grid on
+hold off
+
+%% PCA VARIANCE
+variance = diag(S).^2 / sum(diag(S).^2);
+disp("Variance explained by PC1 + PC2:")
+disp(sum(variance(1:2)))
+
+%% CLUSTER SIZE
+disp(" ")
+disp("===== CLUSTER SIZE =====")
+for k = 1:K_clusters
+    fprintf("Cluster %d : %d segments\n",k,sum(idx==k));
+end
+auto encoder
+%% 1. PARAMETERS & FEATURE EXTRACTION (เหมือนเดิม)
+fs = 4000;                
+window_time = 0.1;        
+overlap = 0.5;
+
+% สมมติว่า a0016 และ a0017 คือปั๊มปกติ (ใช้ Train), a0018 คือปั๊มที่มีปัญหา (ใช้ Test)
+files = ["AE testing/a0016.bin", "AE testing/a0017.bin", "AE testing/a0018.bin"];
+
+win = round(window_time*fs);
+step = round(win*(1-overlap));
+
+features = [];
+file_labels = []; % เก็บว่าข้อมูลแต่ละแถวมาจากไฟล์ไหน
+
+disp('Extracting Features...');
+for f = 1:length(files)
+    filename = files(f);
+    fid = fopen(filename,'rb');
+    if fid == -1, continue; end
+
+    data = fread(fid,Inf,'uint16');
+    fclose(fid);
+
+    signal = double(data)/4096*3.3;   
+    N = length(signal);
+
+    for i = 1:step:N-win
+        segment = signal(i:i+win-1);
+        
+        % สกัด 8 Features
+        mu = mean(segment); sigma = std(segment);
+        rms_val = sqrt(mean(segment.^2));
+        kurt = mean((segment-mu).^4)/(sigma^4);
+        skew = mean((segment-mu).^3)/(sigma^3);
+        peak = max(abs(segment));
+        energy = sum(segment.^2);
+        crest = peak / rms_val;
+        
+        Y = abs(fft(segment)); Y = Y(1:floor(end/2));
+        freqs = (0:length(Y)-1)*(fs/length(segment));
+        spec_centroid = sum(freqs'.*Y)/sum(Y);
+        band_energy = sum(Y(freqs>200 & freqs<1000));
+        
+        feat = [rms_val kurt skew peak energy crest spec_centroid band_energy];
+        features = [features; feat];
+        file_labels = [file_labels; f]; % เก็บหมายเลขไฟล์
+    end
+end
+
+%% 2. DATA PREPARATION FOR AUTOENCODER
+% แบ่งข้อมูล: Train ด้วยไฟล์ 1 และ 2 (ถือว่าเป็น "ปกติ")
+train_idx = (file_labels == 1) | (file_labels == 2);
+X_train_raw = features(train_idx, :);
+
+% Test ด้วยข้อมูลทั้งหมด (เพื่อดูว่ามันแยกไฟล์ 3 ออกมาได้ไหม)
+X_all_raw = features;
+
+% Normalization (Z-score) โดยใช้อ้างอิงจากข้อมูล Train เป็นหลัก
+mu_train = mean(X_train_raw);
+sig_train = std(X_train_raw) + 1e-8;
+
+X_train = (X_train_raw - mu_train) ./ sig_train;
+X_all = (X_all_raw - mu_train) ./ sig_train;
+
+%% 3. AUTOENCODER TRAINING (PURE MATH - NO TOOLBOX)
+% โครงสร้าง: Input(8) -> Hidden(4) -> Output(8)
+input_dim = 8;
+hidden_dim = 4; % บีบอัดข้อมูลให้เหลือ 4 มิติ (Bottleneck)
+
+rng(42); % ล็อกค่าสุ่ม
+W1 = randn(input_dim, hidden_dim) * 0.1;
+b1 = zeros(1, hidden_dim);
+W2 = randn(hidden_dim, input_dim) * 0.1;
+b2 = zeros(1, input_dim);
+
+epochs = 1000;
+learning_rate = 0.05;
+N_train = size(X_train, 1);
+
+disp('Training Autoencoder...');
+for ep = 1:epochs
+    % --- FORWARD PASS ---
+    Z1 = X_train * W1 + b1;
+    A1 = max(0, Z1);           % ReLU Activation
+    Z2 = A1 * W2 + b2;
+    X_pred = Z2;               % Linear Output
+    
+    % --- LOSS FUNCTION (Mean Squared Error) ---
+    error = X_pred - X_train;
+    loss = mean(mean(error.^2));
+    
+    % --- BACKPROPAGATION (Gradient Descent) ---
+    dZ2 = 2 * error / N_train;
+    dW2 = A1' * dZ2;
+    db2 = sum(dZ2, 1);
+    
+    dA1 = dZ2 * W2';
+    dZ1 = dA1 .* (Z1 > 0);     % อนุพันธ์ของ ReLU
+    dW1 = X_train' * dZ1;
+    db1 = sum(dZ1, 1);
+    
+    % --- UPDATE WEIGHTS ---
+    W1 = W1 - learning_rate * dW1;
+    b1 = b1 - learning_rate * db1;
+    W2 = W2 - learning_rate * dW2;
+    b2 = b2 - learning_rate * db2;
+    
+    if mod(ep, 200) == 0
+        fprintf('Epoch %d / %d | Loss (MSE): %.4f\n', ep, epochs, loss);
+    end
+end
+
+%% 4. ANOMALY DETECTION (TESTING STAGE)
+disp('Calculating Reconstruction Error (Anomaly Score)...');
+
+% โยนข้อมูลทั้งหมดเข้า Autoencoder ที่ฝึกเสร็จแล้ว
+Z1_all = X_all * W1 + b1;
+A1_all = max(0, Z1_all);
+Z2_all = A1_all * W2 + b2;
+X_all_pred = Z2_all;
+
+% คำนวณ Reconstruction Error (MSE ต่อ Window)
+% ยิ่ง Error สูง แปลว่าโมเดลไม่คุ้นเคย = ผิดปกติ (Anomaly)
+reconstruction_error = mean((X_all - X_all_pred).^2, 2);
+
+%% 5. VISUALIZATION & DASHBOARD MOCKUP
+figure('Name', 'Autoencoder Anomaly Detection', 'Position', [100, 100, 800, 400]);
+hold on;
+
+% พล็อต Error ของข้อมูลไฟล์ 1, 2 (สภาวะปกติ)
+normal_data = reconstruction_error(train_idx);
+plot(find(train_idx), normal_data, 'b-', 'LineWidth', 1.5, 'DisplayName', 'Normal State (File 1, 2)');
+
+% พล็อต Error ของข้อมูลไฟล์ 3 (สภาวะผิดปกติ/มีสิ่งแปลกปลอม)
+anomaly_idx = (file_labels == 3);
+anomaly_data = reconstruction_error(anomaly_idx);
+plot(find(anomaly_idx), anomaly_data, 'r-', 'LineWidth', 1.5, 'DisplayName', 'Test State (File 3)');
+
+% สร้างเส้น Threshold 
+% (กำหนดจาก: ค่าเฉลี่ย Error ตอนปกติ + 3 เท่าของค่าเบี่ยงเบนมาตรฐาน (3-Sigma Rule))
+threshold = mean(normal_data) + 3*std(normal_data);
+yline(threshold, 'k--', 'LineWidth', 2, 'DisplayName', 'Alarm Threshold (3\sigma)');
+
+xlabel('Time Window Index');
+ylabel('Reconstruction Error (Anomaly Score)');
+title('Predictive Maintenance: Anomaly Detection using Autoencoder');
+legend('Location', 'northwest');
+grid on;
+hold off;
+
+%% SUMMARY REPORT
+disp(' ')
+disp('===== ANOMALY DETECTION REPORT =====')
+fprintf('Threshold set at: %.4f\n', threshold);
+fprintf('Normal Windows detected as Anomaly (False Alarm): %d / %d\n', sum(normal_data > threshold), length(normal_data));
+fprintf('Test Windows (File 3) crossing Threshold (True Alarm): %d / %d\n', sum(anomaly_data > threshold), length(anomaly_data));
