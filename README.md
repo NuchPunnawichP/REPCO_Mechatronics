@@ -39,3 +39,15 @@ REPCO_Mechatronics/
 │   └── ...
 │
 └── README.md
+
+## 📥 Download and Installation
+
+**For Windows Users:**
+1. Download the `AE_Analyzer.exe` file.
+2. Double-click the file to run the application instantly. No installation required.
+*(Note: Windows Defender might show a "Windows protected your PC" blue screen because the app is from an unknown publisher. Click "More info" and then "Run anyway").*
+
+**For Mac Users:**
+1. Download the `AE_Analyzer.zip` file.
+2. Extract the `.zip` to get the `AE_Analyzer.app`.
+3. Right-click the `.app` file and select "Open" to bypass Mac's first-time security block.
