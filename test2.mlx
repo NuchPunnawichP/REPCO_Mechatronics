@@ -92,7 +92,7 @@ X_pca = score(:,1:2);
 K = 3;
 N = size(X_pca, 1);
 
-rng(1)
+rng(1) 
 
 centroids = X_pca(randperm(N,K),:);
 
