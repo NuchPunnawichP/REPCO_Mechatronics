@@ -2,52 +2,80 @@
 
 An automated Diagnostic and Decision Logic tool for Microprocessor-based Acoustic Emission (AE) Feature Processing. This project was developed in collaboration with SCGC and REPCO to process, analyze, and interpret mechanical AE signals for predictive maintenance and fault detection.
 
-## 🚀 Overview
+## Video Demonstration & Tutorial
 
-The AE Analyzer is a Python-based desktop application designed to process raw acoustic emission data gathered from industrial machinery. Instead of relying purely on manual graph interpretation, the software features an embedded decision logic engine that automatically classifies signal behavior, detects energy trends, and flags high-energy anomalies indicative of localized mechanical defects (such as pitting, spalling, or crack propagation).
+Watch the video below to see a complete walkthrough of how to operate the AE Analyzer program. 
 
-## 🎥 Video Demonstration & Tutorial
+*Note: The current video tutorial demonstrates the installation and usage for **macOS users**. A tutorial for Windows users will be uploaded at a later date.*
 
-Watch the video below to see a complete walkthrough of how to operate the AE Analyzer program:
-
-[![AE Analyzer Tutorial](https://img.youtube.com/vi/nKzfzsco3KU/maxresdefault.jpg)](https://youtu.be/nKzfzsco3KU)
+[![AE Analyzer Tutorial](https://img.youtube.com/vi/8TOp-iQAnrU/maxresdefault.jpg)](https://youtu.be/8TOp-iQAnrU)
 
 *(Click the image above to open the video on YouTube)*
 
-## ✨ Key Features
+## Theory of Operation & Mathematical Models
 
-* **Raw Data Processing:** Reads raw 16-bit binary (`.bin`) integer data, converts it to real voltage (assuming a 12-bit ADC and 3.3V reference), and automatically centers the signal by removing DC offsets.
-* **Dynamic Feature Extraction:** Computes Root Mean Square (RMS), Peak Amplitude, and AE Counts across customizable sliding time windows (default 0.1s).
-* **Automated Diagnostic Logic:**
-  * **Trend Analysis:** Uses linear regression on RMS values to detect progressing wear (increasing energy) or stable operating conditions.
-  * **Signal Classification:** Calculates the Crest Factor to classify activity as either *Burst Emissions* (distinct impacts, cracking) or *Continuous Emissions* (steady friction, flow).
-  * **Event Detection:** Establishes a dynamic baseline threshold ($+2\sigma$) to automatically isolate and flag specific time windows where abnormal, high-energy spikes occur.
-* **Interactive GUI:** A fully scrollable desktop interface built with `Tkinter` and `Matplotlib` for easy batch loading of `.bin` files, real-time plotting, and automated report generation.
+This application is designed to not only plot data but to autonomously process raw signal data and output actionable mechanical diagnostics. Below is the mathematical framework governing how the code operates.
 
-## 📂 Project Structure
+### 1. Signal Pre-Processing
+The application reads 16-bit binary integer data. It assumes a 12-bit ADC configuration with a 3.3V reference voltage. The raw data is converted to real voltage and centered around zero by removing the DC offset (mean):
 
-```text
-REPCO_Mechatronics/
-│
-├── Python/
-│   ├── app.py               # Main GUI application and diagnostic logic
-│   └── requirements.txt     # Python dependencies 
-│
-├── AE testing/              # Sample binary data files for testing
-│   ├── a0016.bin
-│   ├── a0017.bin
-│   └── ...
-│
-└── README.md
+$$V_{real} = \left( \frac{Data_{ADC}}{4096} \right) \times 3.3$$
+$$V_{centered} = V_{real} - \mu(V_{real})$$
 
-## 📥 Download and Installation
+### 2. Feature Extraction (Time Windows)
+The continuous signal is divided into discrete time windows (default 0.1 seconds at 4000 Hz). For each window of size $N$, three primary features are extracted:
 
-**For Windows Users:**
-1. Download the `AE_Analyzer.exe` file.
-2. Double-click the file to run the application instantly. No installation required.
-*(Note: Windows Defender might show a "Windows protected your PC" blue screen because the app is from an unknown publisher. Click "More info" and then "Run anyway").*
+**Root Mean Square (RMS):** Represents the continuous energy or friction in the system.
+$$V_{RMS} = \sqrt{\frac{1}{N} \sum_{i=1}^{N} v_i^2}$$
 
-**For Mac Users:**
-1. Download the `AE_Analyzer.zip` file.
-2. Extract the `.zip` to get the `AE_Analyzer.app`.
-3. Right-click the `.app` file and select "Open" to bypass Mac's first-time security block.
+**Peak Amplitude:** Represents the maximum transient impact energy.
+$$V_{Peak} = \max(|v_1|, |v_2|, ..., |v_N|)$$
+
+**Acoustic Emission (AE) Counts:** The number of times the signal crosses a dynamically established baseline noise threshold. The threshold ($T$) is set to 3 times the standard deviation ($\sigma$) of the entire signal.
+$$T = 3 \times \sigma$$
+$$AE_{Counts} = \sum_{i=1}^{N} [ |v_i| > T ]$$
+
+### 3. Automated Diagnostic Logic
+The application utilizes the extracted features to determine the machine's operational state:
+
+**Crest Factor (Signal Classification):**
+By comparing Peak to RMS, the software classifies the signal type. A high Crest Factor ($CF > 4.0$) indicates impulsive "Burst" emissions (e.g., crack propagation, pitting). A low Crest Factor indicates "Continuous" emissions (e.g., steady friction).
+$$CF = \frac{V_{Peak}}{V_{RMS}}$$
+
+**Trend Analysis:**
+A linear regression (polyfit) is applied to the RMS array over time. A positive slope ($\frac{\Delta RMS}{\Delta t} > 0.0001$) triggers an "Increasing energy trend" warning, indicating progressing mechanical wear.
+
+## Download and Installation (For Mac Users)
+
+You do not need to install Python or any coding environments to run this application.
+
+1. Download the latest `AE_Analyzer.zip` file from the repository or shared drive.
+2. Double-click the `.zip` file to extract the `AE_Analyzer.app`.
+3. Move the `AE_Analyzer.app` to your Applications folder or Desktop.
+4. **Important First-Time Setup:** Because this is an independent application, Apple's Gatekeeper will flag it on the first launch. To bypass this:
+   * **Right-click** (or Control-click) the `AE_Analyzer.app`.
+   * Select **Open** from the menu. 
+   * Click **Open** again on the security pop-up. You will only have to do this once.
+
+## Usage Guide
+
+1. Launch the application.
+2. Click **"1. Load .bin Files"** and select your binary data files from your testing directory.
+3. Use the dropdown menu to select the specific file you want to analyze.
+4. Click **"3. Compute & Plot"**.
+5. Scroll down to read the **Automated Diagnostic Report** to review the signal classification, energy trends, and detected anomalies.
+
+---
+
+## Security & PyInstaller Architecture
+
+For institutional, academic, and IT security reviews, it is important to understand how the executable files (`.exe` for Windows, `.app` for macOS) generated by this project operate and why they are inherently secure.
+
+### 1. PyInstaller is a "Freezer", not a Compiler
+Unlike traditional compiled languages (like C++ or Fortran) which translate human-readable code into opaque, low-level machine binaries, PyInstaller is a "freezer." It does not alter the fundamental logic of the application. Instead, it bundles the official, verified CPython interpreter together with the required libraries (NumPy, Matplotlib) and the plain-text `app.py` script into a single package. The executable is simply a self-extracting archive that unpacks the official Python engine into a temporary directory and runs the script.
+
+### 2. Complete Open-Source Transparency
+Because PyInstaller bundles the exact Python script found in this repository, the application exhibits 100% logic transparency. IT administrators or academic supervisors can review the `app.py` file in this repository and be mathematically certain that the executable is only performing the stated mathematical operations and GUI rendering. There is no hidden payload, no network requests, and no obfuscated logic.
+
+### 3. User-Space Execution
+The bundled application runs entirely in "user-space." It does not require Administrator or Root privileges to execute. It does not modify system registries, it does not install background services or daemons, and it leaves no permanent footprint on the host machine outside of the temporary extraction folder (which is cleared upon closing the app). This makes it significantly safer than traditional software installers.
