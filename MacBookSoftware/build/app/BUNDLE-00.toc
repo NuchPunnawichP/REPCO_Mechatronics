@@ -1,0 +1,3 @@
+([('app',
+   '/Users/komert/Documents/GitHub/REPCO_Mechatronics/MacBookSoftware/dist/app',
+   'EXECUTABLE')],)
