@@ -235,16 +235,9 @@ data.tofile('sample_signal.bin')
 ## 🤝 Support & Collaboration
 
 Developed in collaboration with:
-- **REPCO** – Automotive diagnostics and predictive maintenance
-- **SCGC** – Signal processing and sensor integration
+- **SCG REPCO** – Automotive diagnostics and predictive maintenance and Signal processing and sensor integration
 
 For technical support, feature requests, or bug reports, contact the development team.
-
----
-
-## 📄 License
-
-This software is provided by REPCO Mechatronics. All rights reserved.
 
 ---
 
