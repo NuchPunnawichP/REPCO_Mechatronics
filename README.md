@@ -2,7 +2,7 @@
 
 A powerful, automated diagnostic tool for analyzing acoustic emission signals and detecting mechanical anomalies through predictive maintenance. Built in collaboration with SCGC and REPCO for microprocessor-based signal processing and fault detection.
 
-![Status](https://img.shields.io/badge/status-stable-brightgreen) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue) ![License](https://img.shields.io/badge/license-REPCO-blue)
+![Status](https://img.shields.io/badge/status-stable-brightgreen) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue) 
 
 ---
 
