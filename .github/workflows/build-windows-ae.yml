@@ -1,12 +1,13 @@
 name: Build AE Analyzer (Windows .exe)
 
 on:
-  # Run automatically when you push changes to this folder
   push:
     paths:
       - 'WindowSoftware_ed4/**'
-  # Also lets you trigger a build manually from the GitHub website
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -38,3 +39,14 @@ jobs:
           name: AE_Analyzer-Windows
           path: WindowSoftware_ed4/dist/AE_Analyzer.exe
           retention-days: 30
+
+      - name: Create GitHub Release with .exe
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-build
+          name: AE Analyzer - Latest Windows Build
+          body: |
+            Windows build of the AE Analyzer app.
+            Download AE_Analyzer.exe below and run it directly — no Python needed.
+          files: WindowSoftware_ed4/dist/AE_Analyzer.exe
+          prerelease: false
