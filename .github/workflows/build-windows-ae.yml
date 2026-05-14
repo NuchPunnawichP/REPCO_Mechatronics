@@ -1,0 +1,40 @@
+name: Build AE Analyzer (Windows .exe)
+
+on:
+  # Run automatically when you push changes to this folder
+  push:
+    paths:
+      - 'WindowSoftware_ed4/**'
+  # Also lets you trigger a build manually from the GitHub website
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        working-directory: WindowSoftware_ed4
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build Windows .exe with PyInstaller
+        working-directory: WindowSoftware_ed4
+        run: |
+          pyinstaller AE_Analyzer.spec
+
+      - name: Upload .exe as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AE_Analyzer-Windows
+          path: WindowSoftware_ed4/dist/AE_Analyzer.exe
+          retention-days: 30
