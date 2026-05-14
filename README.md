@@ -12,8 +12,8 @@ Get up and running in minutes with platform-specific guides:
 
 | Platform | Tutorial |
 |----------|----------|
-| **macOS** | [![Watch Tutorial](https://img.youtube.com/vi/nZWQwkJuh4c/hqdefault.jpg)](https://youtu.be/nZWQwkJuh4c) |
-| **Windows** | [![Watch Tutorial](https://img.youtube.com/vi/ny41qq3ACQI/hqdefault.jpg)](https://youtu.be/ny41qq3ACQI) |
+| **macOS** | [![Watch Tutorial](https://img.youtube.com/vi/adiCMmMgvFY/hqdefault.jpg)](https://youtu.be/adiCMmMgvFY) |
+| **Windows** | [![Watch Tutorial](https://img.youtube.com/vi/MsgajDJlmls/hqdefault.jpg)](https://youtu.be/MsgajDJlmls) |
 
 *Click either image above to watch the complete installation and usage walkthrough.*
 
@@ -72,14 +72,15 @@ Fine-tune visualization to match your equipment and signal characteristics:
 | **Window Counts Max** | Set Y-axis ceiling for per-window event counts |
 | **Cumulative Counts Max** | Set Y-axis ceiling for total event history |
 | **AE Threshold (dBAE)** | Define sensitivity for acoustic event detection |
+| **T1 / T2 / T3 (dBAE)** | Set three severity threshold levels for the AE Level and Amplitude Distribution graphs |
 
-Click **"Apply Colors"** or **"Apply Ranges & Recalculate Counts"** to update plots.
+Click **"Apply Colors"**, **"Apply Ranges & Recalculate Counts"**, or **"Apply Thresholds & Redraw"** to update plots.
 
 ---
 
 ## 📊 Understanding the Output
 
-### Five Diagnostic Plots
+### Seven Diagnostic Plots
 
 1. **Spectrogram (dBFS)**
    - Time-frequency visualization of signal energy
@@ -105,6 +106,16 @@ Click **"Apply Colors"** or **"Apply Ranges & Recalculate Counts"** to update pl
    - Running total of all detected acoustic events
    - Steep rise = increasing fault activity
    - Plateau = stable equipment condition
+
+6. **AE Level (dBAE) vs Time** *(New)*
+   - Plots the windowed peak amplitude converted to dBAE units over time
+   - Three configurable threshold lines (T1, T2, T3) shown as horizontal dashed lines
+   - Instantly shows which time windows exceed each severity level — useful for classifying emission intensity and locating critical events
+
+7. **Amplitude Distribution — N(A)** *(New)*
+   - Shows total cumulative AE count as a function of threshold amplitude (dBAE)
+   - Higher thresholds = fewer events; the shape of the curve reveals emission character
+   - T1, T2, and T3 are marked as vertical dashed lines so you can read off the count at each severity level directly from the curve
 
 ### Automated Diagnostic Report
 
